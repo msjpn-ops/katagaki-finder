@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>肩書ファインダー</title>
+<title>肩書具体化ツール</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -117,7 +117,7 @@ pre.prompt{margin:0;background:var(--code);border:1px solid var(--line);border-r
 <div class="wrap">
   <header class="hero">
     <div>
-      <h1>肩書ファインダー</h1>
+      <h1>肩書具体化ツール</h1>
       <p>経歴・得意なこと・好きなこと・人からの評価を入力すると、ChatGPTやClaudeに貼る指示文ができます。AIとの対話で、肩書とサービス案づくり、市場チェック、名刺とチラシの原稿づくりまで進めます。</p>
     </div>
     <div class="meishi" aria-label="名刺のプレビュー">
@@ -196,7 +196,7 @@ pre.prompt{margin:0;background:var(--code);border:1px solid var(--line);border-r
         <fieldset>
           <legend>7. 第三者からの評価 <small>2〜3人分あると精度が上がります</small></legend>
           <p class="hint">友人や元同僚に、このツールの「友人として回答する」で答えてもらい、届いた文章をそのまま貼り付けます。</p>
-          <div class="field"><label for="toolUrl">このツールのURL（依頼メッセージに入ります）</label><input type="text" id="toolUrl" placeholder="例：https://〇〇.github.io/katagaki/"></div>
+          <div class="field"><label for="toolUrl">このツールのURL（送るときに末尾へ #friend が自動で付きます）</label><input type="text" id="toolUrl" placeholder="例：https://〇〇.github.io/katagaki/"></div>
           <div class="actions"><button class="btn ghost small" type="button" id="copyAsk">回答依頼メッセージをコピー</button><span class="toast" id="askToast"></span></div>
           <div class="field"><label for="fr1">回答 1</label><textarea id="fr1" placeholder="届いた回答を貼り付け"></textarea></div>
           <div class="field"><label for="fr2">回答 2<span class="opt">任意</span></label><textarea id="fr2" placeholder="届いた回答を貼り付け"></textarea></div>
@@ -214,6 +214,13 @@ pre.prompt{margin:0;background:var(--code);border:1px solid var(--line);border-r
           <button role="tab" data-step="4" aria-selected="false"><span>STEP 4</span>名刺と<br>チラシ</button>
         </div>
         <p class="how" id="how"></p>
+        <div class="field" id="step1opts">
+          <span class="lbl">インタビューの長さ</span>
+          <div class="radios">
+            <label for="depthQuick"><input type="radio" name="depth" id="depthQuick" value="quick" checked>さくっと（5問・選択肢つき）</label>
+            <label for="depthDeep"><input type="radio" name="depth" id="depthDeep" value="deep">じっくり（8問・掘り下げあり）</label>
+          </div>
+        </div>
         <div class="opts4" id="step4opts" hidden>
           <div class="field"><label for="dir">肩書の方向性</label><select id="dir"><option>お任せ</option><option>専門家らしく信頼感重視</option><option>親しみやすさ重視</option><option>覚えてもらえるユニークさ重視</option></select></div>
           <div class="field"><label for="tone">チラシの雰囲気</label><select id="tone"><option>誠実・信頼感</option><option>やさしい・親しみ</option><option>明るい・ポップ</option><option>上品・高級感</option></select></div>
@@ -298,7 +305,7 @@ pre.prompt{margin:0;background:var(--code);border:1px solid var(--line);border-r
     what:["文章","情報","仕組み・段取り"], how:["まとめる","伝える","聞く"],
     style:"どちらでも", time:"週5〜20時間", income:"月5〜20万円"
   };
-  var state = { what:[], how:[], style:"", time:"", income:"", step:1, standalone:false };
+  var state = { what:[], how:[], style:"", time:"", income:"", step:1, standalone:false, depth:"quick" };
 
   // ---- build chips / radios ----
   function buildChips(box, list, key){
@@ -313,7 +320,7 @@ pre.prompt{margin:0;background:var(--code);border:1px solid var(--line);border-r
     });
   }
   buildChips($("chipsWhat"),WHAT,"what"); buildChips($("chipsHow"),HOW,"how");
-  document.querySelectorAll(".radios").forEach(function(box){
+  document.querySelectorAll(".radios[data-name]").forEach(function(box){
     var name=box.getAttribute("data-name");
     RADIOS[name].forEach(function(v,i){
       var id="r_"+name+"_"+i;
@@ -379,24 +386,40 @@ pre.prompt{margin:0;background:var(--code);border:1px solid var(--line);border-r
 
   function step1(){
     var hasF=friends().length>0;
-    return [
+    var head=[
 "あなたは、個人の独立や副業を支援してきた経験豊富なキャリアコンサルタントです。",
 "これから、私が自営業として提供できるサービスと、名刺に載せる肩書を一緒に見つけてください。",
 "",
 profile(),
+""];
+    var quick=[
+"# お願い（短めに進めてください）",
+"1. まだ分析や提案はしないでください。",
+"2. 私の強みを見つけるための質問を「1回に1つずつ」、最大5問までしてください。",
+"3. 各質問には、答えの選択肢を3〜4個つけてください。私は番号で答えます（自由に書き足すこともあります）。",
+"4. 前置き・感想・あいづちは書かず、質問と選択肢だけを短く書いてください。",
+"5. 掘り下げの追加質問はしないでください。わからない点は、まとめの中で「仮説」として書いてください。",
+hasF ? "6. 私の自己評価と第三者の評価にズレがある点を、優先して質問してください。" : "6. 私が「当たり前」と思っていそうなことを、優先して質問してください。",
+"7. 私が途中で「まとめて」と言ったら、その時点でまとめに進んでください。",
+"8. 質問が終わったら、次の形で短くまとめてください。",
+"   ・私の強み（3つ。根拠を1行ずつ）",
+"   ・私が気づいていなかった強み（1〜2つ）",
+"   ・お金になりそうな「何を × どうする」の組み合わせ（3つ）",
 "",
+"それでは、1問目をお願いします。"];
+    var deep=[
 "# お願い",
 "1. まだ分析や提案はしないでください。",
 "2. 上のプロフィールを読んで、私の強みを見つけるための質問を「1回に1つずつ」してください。",
 "3. 私の答えが抽象的なときは、「具体的にはどんな場面でしたか？」のように、エピソードを掘り下げてください。",
 hasF ? "4. 私の自己評価と第三者の評価にズレがある点は、特に詳しく聞いてください。本人が気づいていない強みの可能性があります。" : "4. 私が「当たり前」と思っていそうなことにも注目して、質問してください。",
-"5. 8問ほど聞き終えたら、次の形でまとめてください。",
+"5. 8問ほど聞き終えたら、次の形でまとめてください。私が途中で「まとめて」と言ったら、その時点でまとめに進んでください。",
 "   ・私の強み（根拠となるエピソード付き）",
 "   ・私が気づいていなかった強み",
 "   ・お金になりそうな「何を × どうする」の組み合わせ 3つ",
 "",
-"それでは、最初の質問をお願いします。"
-    ].join("\n");
+"それでは、最初の質問をお願いします。"];
+    return head.concat(state.depth==="deep"?deep:quick).join("\n");
   }
   function step2(){
     return lead()+[
@@ -470,7 +493,7 @@ conditions(),
     ].join("\n");
   }
   var HOW_TEXT = {
-    1:"<b>最初に貼る指示文です。</b>AIが質問を1つずつしてくるので、具体的なエピソードで答えてください。職務経歴書の画像を使う場合は、ここで一緒に添付します。",
+    1:"<b>最初に貼る指示文です。</b>AIが質問を1つずつしてきます。「さくっと」なら番号で答えるだけです。疲れたら「まとめて」と送れば、途中でまとめに進みます。職務経歴書の画像を使う場合は、ここで一緒に添付します。",
     2:"<b>STEP 1のまとめが出たら、同じチャットに貼ります。</b>肩書とサービス案を5つ出してもらいます。",
     3:"<b>Web検索をオンにしてから貼ります。</b>実際に売れている前例があるかを、URL付きで確認してもらいます。",
     4:"<b>使う案が決まったら貼ります。</b>方向性と雰囲気を選ぶと、指示文に反映されます。"
@@ -484,6 +507,7 @@ conditions(),
     $("how").innerHTML=HOW_TEXT[state.step];
     $("step4opts").hidden = state.step!==4 && state.step!==2;
     $("standaloneWrap").hidden = state.step===1;
+    $("step1opts").hidden = state.step!==1;
     // kake
     if(state.what.length && state.how.length){
       var combos=[]; state.what.forEach(function(w){ state.how.forEach(function(h){ combos.push(w+"×"+h); }); });
@@ -529,8 +553,8 @@ conditions(),
   $("copyFriend").addEventListener("click",function(){ copyText($("friendOut").textContent,$("friendOut"),"fToast","コピーしました。LINEやメールで本人に送ってください。"); });
   $("copyAsk").addEventListener("click",function(){
     var me=has("name")? $("name").value.trim() : "私";
-    var url=has("toolUrl")? $("toolUrl").value.trim() : "（ツールのURL）";
-    var t=me+"です。独立に向けて自分の強みを整理していて、客観的な意見をもらえるとうれしいです。\n5問だけ、3分ほどで答えられます。\n\n① このページを開いてください\n"+url+"\n② 上の「友人として回答する」を選んで答えてください\n③ 最後の「回答をコピー」ボタンを押して、私に送ってください\n\nよろしくお願いします！";
+    var url=has("toolUrl")? $("toolUrl").value.trim().split("#")[0]+"#friend" : "（ツールのURL）";
+    var t=me+"です。独立に向けて自分の強みを整理していて、客観的な意見をもらえるとうれしいです。\n5問だけ、3分ほどで答えられます。\n\n① このページを開いてください\n"+url+"\n② 「友人として回答する」の画面で、5問に答えてください\n③ 最後の「回答をコピー」ボタンを押して、私に送ってください\n\nよろしくお願いします！";
     var tmp=document.createElement("pre"); tmp.textContent=t;
     copyText(t,tmp,"askToast","依頼メッセージをコピーしました。");
   });
@@ -538,6 +562,7 @@ conditions(),
   // ---- events ----
   TEXT_IDS.forEach(function(id){ $(id).addEventListener("input",onChange); $(id).addEventListener("change",onChange); });
   $("resumeImg").addEventListener("change",onChange);
+  document.querySelectorAll('input[name="depth"]').forEach(function(r){ r.addEventListener("change",function(){ state.depth=r.value; render(); }); });
   $("standalone").addEventListener("change",function(){ state.standalone=this.checked; render(); });
   document.querySelectorAll("#steps button").forEach(function(b){
     b.addEventListener("click",function(){
