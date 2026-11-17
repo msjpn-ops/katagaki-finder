@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>肩書ファインダー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@700&display=swap">
+<style>
+/* Layout: 左に入力フォーム、右に追従する「指示文」パネル。名刺のような小さなプレビューを見出しに置く */
+:root{
+  --paper:#F4F6F8; --card:#FFFFFF; --ink:#1B2230; --muted:#5D6776; --line:#D9DFE6;
+  --accent:#1E6B58; --accent-ink:#FFFFFF; --accent-soft:#E2EFEB; --warn:#9A5B12; --warn-soft:#FBF1E2;
+  --code:#F7F9FA;
+  --f-display:"Zen Old Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+  --f-mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#11151B; --card:#191F28; --ink:#E5E9EF; --muted:#9BA5B3; --line:#2B333F;
+  --accent:#5DBF9F; --accent-ink:#0E1A16; --accent-soft:#1B312B; --warn:#E3A961; --warn-soft:#2E2417;
+  --code:#141A21; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --paper:#11151B; --card:#191F28; --ink:#E5E9EF; --muted:#9BA5B3; --line:#2B333F;
+  --accent:#5DBF9F; --accent-ink:#0E1A16; --accent-soft:#1B312B; --warn:#E3A961; --warn-soft:#2E2417;
+  --code:#141A21; color-scheme:dark }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.75;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0}
+a{color:var(--accent)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center}
+.hero h1{font-family:var(--f-display);font-size:clamp(28px,4vw,40px);line-height:1.25;letter-spacing:.02em}
+.hero p{color:var(--muted);max-width:60ch;margin-top:8px}
+.meishi{width:280px;aspect-ratio:91/55;max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:4px;
+  box-shadow:0 10px 24px -14px rgba(0,0,0,.35);padding:18px 20px;display:flex;flex-direction:column;justify-content:space-between}
+.meishi .t{font-size:11px;color:var(--accent);letter-spacing:.08em}
+.meishi .n{font-family:var(--f-display);font-size:22px;letter-spacing:.12em}
+.meishi .s{font-size:10px;color:var(--muted);border-top:1px solid var(--line);padding-top:6px}
+@media (max-width:720px){.hero{grid-template-columns:1fr}.meishi{width:240px}}
+
+.privacy{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:flex-start}
+.privacy b{color:var(--ink);font-weight:500}
+
+/* mode tabs */
+.modes{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.modes button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;cursor:pointer;color:var(--muted);font-weight:500}
+.modes button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+/* main grid */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:960px){.grid{grid-template-columns:minmax(0,1fr)}}
+.form{display:flex;flex-direction:column;gap:20px;min-width:0}
+fieldset{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 18px 20px;margin:0;display:flex;flex-direction:column;gap:14px;min-width:0}
+legend{font-weight:700;padding:0 6px;font-size:16px}
+legend small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+.hint{font-size:13px;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label,.field .lbl{font-weight:500;font-size:14px}
+.opt{font-size:11px;color:var(--muted);font-weight:400;margin-left:6px;border:1px solid var(--line);border-radius:3px;padding:0 4px}
+.req{font-size:11px;color:var(--accent);font-weight:500;margin-left:6px;border:1px solid var(--accent);border-radius:3px;padding:0 4px}
+input[type=text],select,textarea{width:100%;background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:9px 11px}
+textarea{min-height:76px;resize:vertical}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:4px 12px;cursor:pointer;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.radios{display:flex;flex-wrap:wrap;gap:6px}
+.radios label{border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:14px;font-weight:400}
+.radios input{accent-color:var(--accent);margin-right:4px}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.check input{accent-color:var(--accent);margin-top:6px}
+.kake{font-size:13px;background:var(--accent-soft);border-radius:6px;padding:8px 12px}
+
+.banner{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:10px 14px;font-size:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:8px 14px;cursor:pointer;font-weight:500;text-decoration:none;font-size:14px}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn.small{padding:4px 10px;font-size:13px}
+.btn.warnb{border-color:var(--warn);background:transparent;color:var(--warn)}
+
+/* output panel */
+.panel{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+@media (max-width:960px){.panel{position:static}}
+.panel h2{font-size:17px}
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.steps button{border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:6px 4px;cursor:pointer;font-size:13px;line-height:1.35;text-align:center}
+.steps button span{display:block;font-size:11px;color:var(--muted)}
+.steps button[aria-selected="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps button[aria-selected="true"] span{color:var(--accent)}
+.how{font-size:13.5px;color:var(--muted)}
+.how b{color:var(--ink);font-weight:500}
+pre.prompt{margin:0;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px;font-family:var(--f-body);font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:52vh;overflow:auto}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.count{font-size:12px;color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums}
+.toast{font-size:13px;color:var(--accent);min-height:1.2em}
+.opts4{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.opts4 .field label{font-size:13px}
+.note{font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+
+.friend-intro{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:8px}
+.friend-intro h2{font-size:18px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <h1>肩書ファインダー</h1>
+      <p>経歴・得意なこと・好きなこと・人からの評価を入力すると、ChatGPTやClaudeに貼る指示文ができます。AIとの対話で、肩書とサービス案づくり、市場チェック、名刺とチラシの原稿づくりまで進めます。</p>
+    </div>
+    <div class="meishi" aria-label="名刺のプレビュー">
+      <div class="t" id="cardTitle">肩書は、これから見つけます</div>
+      <div class="n" id="cardName">山田 はるか</div>
+      <div class="s" id="cardSub">東京23区 ／ オンライン・対面</div>
+    </div>
+  </header>
+
+  <p class="privacy"><span><b>入力内容はこのブラウザの中だけで使われ、どこにも送信されません。</b>下書きはこの端末のブラウザにだけ一時保存されます。</span></p>
+
+  <div class="modes" role="tablist">
+    <button role="tab" id="tabSelf" aria-selected="true">本人が入力する</button>
+    <button role="tab" id="tabFriend" aria-selected="false">友人として回答する</button>
+  </div>
+
+  <!-- ===== 本人モード ===== -->
+  <section id="selfView">
+    <div class="grid">
+      <div class="form" id="selfForm">
+        <div class="banner" id="sampleBanner" hidden>
+          <span>いまは<b>サンプルの入力例</b>が入っています。</span>
+          <button class="btn warnb small" id="clearBtn" type="button">サンプルを消して入力する</button>
+        </div>
+
+        <fieldset>
+          <legend>1. 基本情報</legend>
+          <div class="row2">
+            <div class="field"><label for="name">お名前（呼び名）</label><input type="text" id="name" placeholder="例：山田 はるか"></div>
+            <div class="field"><label for="age">年代</label>
+              <select id="age"><option value="">選んでください</option><option>20代</option><option>30代</option><option>40代</option><option>50代</option><option>60代以上</option></select></div>
+          </div>
+          <div class="field"><label for="area">活動エリア</label><input type="text" id="area" placeholder="例：東京23区、全国（オンライン）"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>2. 経歴・実績 <small>何ができるか</small></legend>
+          <label class="check"><input type="checkbox" id="resumeImg"> <span>職務経歴書の画像をAIに添付する（下の職歴欄は簡単でOK）</span></label>
+          <div class="field"><label for="career">これまでの職歴<span class="req">必須</span></label><textarea id="career" placeholder="例：不動産会社で営業10年 → Web制作会社でディレクター5年"></textarea></div>
+          <div class="field"><label for="deep">一番長く・深く関わった仕事</label><input type="text" id="deep" placeholder="例：飲食店や美容室のホームページ制作と集客の相談"></div>
+          <div class="row2">
+            <div class="field"><label for="numbers">数字で言える実績<span class="opt">任意</span></label><input type="text" id="numbers" placeholder="例：年間契約100件"></div>
+            <div class="field"><label for="skills">資格・スキル<span class="opt">任意</span></label><input type="text" id="skills" placeholder="例：宅建、WordPress"></div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>3. 出来事 <small>自己評価ではなく、あったことを書きます</small></legend>
+          <div class="field"><label for="asked">最近、人から頼まれたこと<span class="req">必須</span></label><textarea id="asked" placeholder="例：友人の開業準備で、チラシの文章とInstagramの始め方を相談された"></textarea></div>
+          <div class="field"><label for="thanks">「ありがとう」と言われて印象に残っていること</label><textarea id="thanks" placeholder="例：取引先の社長に、説明がわかりやすいと何度も言われた"></textarea></div>
+          <div class="field"><label for="praised">「それ得意だね」と言われたこと</label><input type="text" id="praised" placeholder="例：話をまとめて資料にすること"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>4. 得意の掛け算 <small>当てはまるものを選ぶ（複数可）</small></legend>
+          <div class="field"><span class="lbl">何を</span><div class="chips" id="chipsWhat"></div></div>
+          <div class="field"><span class="lbl">どうする</span><div class="chips" id="chipsHow"></div></div>
+          <div class="kake" id="kakeOut">選ぶと、ここに組み合わせが表示されます。</div>
+        </fieldset>
+
+        <fieldset>
+          <legend>5. 好きなこと <small>続けられること</small></legend>
+          <div class="field"><label for="love">時間を忘れてやっていること</label><input type="text" id="love" placeholder="例：カフェ巡り、ガジェットの比較"></div>
+          <div class="field"><label for="spent">お金や時間をかけてきたこと<span class="opt">任意</span></label><input type="text" id="spent" placeholder="例：写真教室、マーケティングのセミナー"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>6. 条件 <small>売り方を決めるため</small></legend>
+          <div class="field"><span class="lbl">活動スタイル<span class="req">必須</span></span><div class="radios" data-name="style"></div></div>
+          <div class="field"><span class="lbl">使える時間</span><div class="radios" data-name="time"></div></div>
+          <div class="field"><span class="lbl">目標の月収</span><div class="radios" data-name="income"></div></div>
+          <div class="field"><label for="target">関わりたい相手<span class="opt">任意</span></label><input type="text" id="target" placeholder="例：個人店のオーナー、開業したばかりの人"></div>
+          <div class="field"><label for="ng">やりたくないこと<span class="opt">任意</span></label><input type="text" id="ng" placeholder="例：電話営業、土日の対応"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>7. 第三者からの評価 <small>2〜3人分あると精度が上がります</small></legend>
+          <p class="hint">友人や元同僚に、このツールの「友人として回答する」で答えてもらい、届いた文章をそのまま貼り付けます。</p>
+          <div class="field"><label for="toolUrl">このツールのURL（依頼メッセージに入ります）</label><input type="text" id="toolUrl" placeholder="例：https://〇〇.github.io/katagaki/"></div>
+          <div class="actions"><button class="btn ghost small" type="button" id="copyAsk">回答依頼メッセージをコピー</button><span class="toast" id="askToast"></span></div>
+          <div class="field"><label for="fr1">回答 1</label><textarea id="fr1" placeholder="届いた回答を貼り付け"></textarea></div>
+          <div class="field"><label for="fr2">回答 2<span class="opt">任意</span></label><textarea id="fr2" placeholder="届いた回答を貼り付け"></textarea></div>
+          <div class="field"><label for="fr3">回答 3<span class="opt">任意</span></label><textarea id="fr3" placeholder="届いた回答を貼り付け"></textarea></div>
+        </fieldset>
+        <div class="actions"><button class="btn ghost small" type="button" id="resetBtn">入力内容をすべて消す</button></div>
+      </div>
+
+      <aside class="panel" aria-label="指示文">
+        <h2>AIに貼る指示文</h2>
+        <div class="steps" role="tablist" id="steps">
+          <button role="tab" data-step="1" aria-selected="true"><span>STEP 1</span>深掘り<br>インタビュー</button>
+          <button role="tab" data-step="2" aria-selected="false"><span>STEP 2</span>肩書と<br>サービス案</button>
+          <button role="tab" data-step="3" aria-selected="false"><span>STEP 3</span>市場<br>チェック</button>
+          <button role="tab" data-step="4" aria-selected="false"><span>STEP 4</span>名刺と<br>チラシ</button>
+        </div>
+        <p class="how" id="how"></p>
+        <div class="opts4" id="step4opts" hidden>
+          <div class="field"><label for="dir">肩書の方向性</label><select id="dir"><option>お任せ</option><option>専門家らしく信頼感重視</option><option>親しみやすさ重視</option><option>覚えてもらえるユニークさ重視</option></select></div>
+          <div class="field"><label for="tone">チラシの雰囲気</label><select id="tone"><option>誠実・信頼感</option><option>やさしい・親しみ</option><option>明るい・ポップ</option><option>上品・高級感</option></select></div>
+          <div class="field"><label for="color">メインカラー</label><select id="color"><option>お任せ</option><option>ネイビー</option><option>グリーン</option><option>オレンジ</option><option>ピンク</option><option>モノトーン</option></select></div>
+          <div class="field"><label for="pick">使う案<span class="opt">任意</span></label><input type="text" id="pick" placeholder="空欄ならAIのおすすめ案"></div>
+        </div>
+        <label class="check" id="standaloneWrap" hidden><input type="checkbox" id="standalone"> <span>新しいチャットで使う（プロフィールを指示文に含める）</span></label>
+        <pre class="prompt" id="prompt" tabindex="0"></pre>
+        <div class="actions">
+          <button class="btn" type="button" id="copyPrompt">指示文をコピー</button>
+          <a class="btn ghost" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPTを開く</a>
+          <a class="btn ghost" href="https://claude.ai/new" target="_blank" rel="noopener">Claudeを開く</a>
+          <span class="count" id="count"></span>
+        </div>
+        <div class="toast" id="toast" aria-live="polite"></div>
+        <p class="note">STEP 1〜4は<b>同じチャット</b>に順番に貼ってください。STEP 3はWeb検索をオンにして使います。STEP 4のチラシ画像は、ChatGPTならそのまま生成できます。</p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===== 友人モード ===== -->
+  <section id="friendView" hidden>
+    <div class="grid">
+      <div class="form">
+        <div class="friend-intro">
+          <h2>他己紹介へのご協力、ありがとうございます</h2>
+          <p class="hint">5問・3分ほどで答えられます。思いついたことを短く書いてもらえれば十分です。答え終わったら「回答をコピー」を押して、LINEやメールで本人に送ってください。入力内容はどこにも保存・送信されません。</p>
+        </div>
+        <fieldset>
+          <legend>回答</legend>
+          <div class="row2">
+            <div class="field"><label for="fName">誰についての回答ですか</label><input type="text" id="fName" placeholder="例：山田さん"></div>
+            <div class="field"><label for="fRel">あなたとの関係</label>
+              <select id="fRel"><option value="">選んでください</option><option>元同僚・上司・部下</option><option>取引先・お客さん</option><option>友人</option><option>家族・親戚</option><option>趣味・地域の仲間</option><option>その他</option></select></div>
+          </div>
+          <div class="field"><label for="fQ1">1. この人に頼りたいこと、頼りになる場面は？</label><textarea id="fQ1" placeholder="例：込み入った話を整理してくれるとき"></textarea></div>
+          <div class="field"><label for="fQ2">2. この人の印象を3つの言葉で</label><input type="text" id="fQ2" placeholder="例：聞き上手、段取り上手、ていねい"></div>
+          <div class="field"><label for="fQ3">3. この人がお金を取れそうだと思うことは？</label><textarea id="fQ3" placeholder="例：お店のホームページづくりの相談役"></textarea></div>
+          <div class="field"><label for="fQ4">4. もっと活かせそうなのに、本人が気づいていなさそうなことは？<span class="opt">任意</span></label><textarea id="fQ4"></textarea></div>
+          <div class="field"><label for="fQ5">5. この人を紹介したい相手や場面は？<span class="opt">任意</span></label><input type="text" id="fQ5" placeholder="例：これから開業する知人"></div>
+        </fieldset>
+      </div>
+      <aside class="panel" aria-label="回答のプレビュー">
+        <h2>本人に送る回答</h2>
+        <pre class="prompt" id="friendOut" tabindex="0"></pre>
+        <div class="actions"><button class="btn" type="button" id="copyFriend">回答をコピー</button></div>
+        <div class="toast" id="fToast" aria-live="polite"></div>
+        <p class="note">コピーした文章を、LINEやメールに貼り付けて本人に送ってください。</p>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var WHAT = ["人","文章","数字・お金","モノ","情報","デザイン","場・イベント","仕組み・段取り"];
+  var HOW  = ["教える","まとめる","作る","整える","つなぐ","聞く","調べる","伝える","励ます"];
+  var RADIOS = {
+    style:["オンライン","対面","どちらでも"],
+    time:["週5時間未満","週5〜20時間","本業として"],
+    income:["月5万円まで","月5〜20万円","月20〜30万円","月30万円以上"]
+  };
+  var TEXT_IDS = ["name","age","area","career","deep","numbers","skills","asked","thanks","praised","love","spent","target","ng","toolUrl","fr1","fr2","fr3","dir","tone","color","pick"];
+  var FRIEND_IDS = ["fName","fRel","fQ1","fQ2","fQ3","fQ4","fQ5"];
+  var KEY = "katagaki-finder-draft-v1";
+
+  var SAMPLE = {
+    name:"山田 はるか", age:"40代", area:"東京23区、全国（オンライン）",
+    career:"不動産会社で賃貸・売買の営業を10年。その後、Web制作会社でディレクターを5年（中小企業や店舗のホームページ制作を担当）。",
+    deep:"飲食店・美容室など、個人店のホームページ制作と集客の相談",
+    numbers:"不動産営業で年間契約100件、担当したサイトの問い合わせ数を平均2倍に",
+    skills:"宅建、WordPress、Canva",
+    asked:"友人の開業準備で、チラシの文章とInstagramの始め方を相談された。元同僚から、取引先向けの提案資料の手直しを頼まれる。",
+    thanks:"取引先の社長に「専門用語を使わずに説明してくれるから助かる」と何度も言われた。",
+    praised:"ばらばらの話をまとめて、1枚の資料にすること",
+    love:"カフェ巡り、個人店の看板やメニューを見ること",
+    spent:"マーケティングのセミナー、写真教室",
+    target:"開業したばかりの個人店のオーナー", ng:"電話営業、毎日のSNS代行",
+    toolUrl:"", fr1:"【山田さんについての回答】\n回答者との関係：元同僚・上司・部下\n1. 頼りたいこと：お客さんの話がまとまらないとき、要点を整理してくれる\n2. 印象を3つの言葉で：聞き上手、段取り上手、ていねい\n3. お金を取れそうなこと：お店を始める人向けの「最初の集客まわり」の相談役\n4. 本人が気づいていなさそうなこと：不動産の知識。物件選びから相談できる人はなかなかいない\n5. 紹介したい相手：これから飲食店を開く知人", fr2:"", fr3:"",
+    dir:"お任せ", tone:"誠実・信頼感", color:"お任せ", pick:"",
+    what:["文章","情報","仕組み・段取り"], how:["まとめる","伝える","聞く"],
+    style:"どちらでも", time:"週5〜20時間", income:"月5〜20万円"
+  };
+  var state = { what:[], how:[], style:"", time:"", income:"", step:1, standalone:false };
+
+  // ---- build chips / radios ----
+  function buildChips(box, list, key){
+    list.forEach(function(w){
+      var b=document.createElement("button"); b.type="button"; b.className="chip"; b.textContent=w; b.setAttribute("aria-pressed","false");
+      b.addEventListener("click",function(){
+        var arr=state[key], i=arr.indexOf(w);
+        if(i>=0) arr.splice(i,1); else arr.push(w);
+        b.setAttribute("aria-pressed", i>=0?"false":"true"); onChange();
+      });
+      box.appendChild(b);
+    });
+  }
+  buildChips($("chipsWhat"),WHAT,"what"); buildChips($("chipsHow"),HOW,"how");
+  document.querySelectorAll(".radios").forEach(function(box){
+    var name=box.getAttribute("data-name");
+    RADIOS[name].forEach(function(v,i){
+      var id="r_"+name+"_"+i;
+      var l=document.createElement("label"); l.setAttribute("for",id);
+      var r=document.createElement("input"); r.type="radio"; r.name=name; r.id=id; r.value=v;
+      r.addEventListener("change",function(){ state[name]=v; onChange(); });
+      l.appendChild(r); l.appendChild(document.createTextNode(v)); box.appendChild(l);
+    });
+  });
+
+  // ---- state load/save ----
+  function apply(d){
+    TEXT_IDS.forEach(function(id){ if(d[id]!==undefined && $(id)) $(id).value=d[id]; });
+    state.what=(d.what||[]).slice(); state.how=(d.how||[]).slice();
+    ["style","time","income"].forEach(function(k){
+      state[k]=d[k]||"";
+      document.querySelectorAll('input[name="'+k+'"]').forEach(function(r){ r.checked=(r.value===state[k]); });
+    });
+    $("resumeImg").checked=!!d.resumeImg;
+    syncChips();
+  }
+  function syncChips(){
+    document.querySelectorAll("#chipsWhat .chip").forEach(function(b){ b.setAttribute("aria-pressed", state.what.indexOf(b.textContent)>=0?"true":"false"); });
+    document.querySelectorAll("#chipsHow .chip").forEach(function(b){ b.setAttribute("aria-pressed", state.how.indexOf(b.textContent)>=0?"true":"false"); });
+  }
+  function collect(){
+    var d={}; TEXT_IDS.forEach(function(id){ d[id]=$(id).value; });
+    d.what=state.what.slice(); d.how=state.how.slice(); d.style=state.style; d.time=state.time; d.income=state.income;
+    d.resumeImg=$("resumeImg").checked; return d;
+  }
+  var isSample=false;
+  function save(){ try{ var d=collect(); d._sample=isSample; localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
+  function load(){ try{ var s=localStorage.getItem(KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+
+  // ---- prompt building ----
+  function v(id){ var x=($(id).value||"").trim(); return x||"（未入力）"; }
+  function has(id){ return !!($(id).value||"").trim(); }
+  function list(a){ return a.length? a.join("、") : "（未選択）"; }
+
+  function friends(){
+    var out=[]; ["fr1","fr2","fr3"].forEach(function(id,i){ if(has(id)) out.push("【第三者の回答 "+(i+1)+"】\n"+$(id).value.trim()); });
+    return out;
+  }
+  function profile(){
+    var p=[];
+    p.push("# 私のプロフィール");
+    p.push("■ 基本\n・呼び名："+v("name")+"\n・年代："+v("age")+"\n・活動エリア："+v("area"));
+    var c="■ 経歴・実績\n・職歴："+v("career")+"\n・一番長く／深く関わった仕事："+v("deep")+"\n・数字で言える実績："+v("numbers")+"\n・資格・スキル："+v("skills");
+    if($("resumeImg").checked) c+="\n・職務経歴書の画像を添付しました。内容を読み取って、経歴として扱ってください。";
+    p.push(c);
+    p.push("■ 実際にあった出来事（自己評価ではなく事実）\n・最近、人から頼まれたこと："+v("asked")+"\n・「ありがとう」と言われて印象に残っていること："+v("thanks")+"\n・「それ得意だね」と言われたこと："+v("praised"));
+    p.push("■ 得意の掛け算（本人が選んだもの）\n・何を："+list(state.what)+"\n・どうする："+list(state.how));
+    p.push("■ 好きなこと\n・時間を忘れてやっていること："+v("love")+"\n・お金や時間をかけてきたこと："+v("spent"));
+    p.push(conditions());
+    var f=friends();
+    p.push("■ 第三者からの評価\n"+(f.length? f.join("\n\n") : "（なし）"));
+    return p.join("\n\n");
+  }
+  function conditions(){
+    return "■ 条件\n・活動スタイル："+(state.style||"（未選択）")+"\n・使える時間："+(state.time||"（未選択）")+"\n・目標の月収："+(state.income||"（未選択）")+"\n・関わりたい相手："+v("target")+"\n・やりたくないこと："+v("ng");
+  }
+  function lead(){ return state.standalone ? profile()+"\n\n---\n\n" : ""; }
+
+  function step1(){
+    var hasF=friends().length>0;
+    return [
+"あなたは、個人の独立や副業を支援してきた経験豊富なキャリアコンサルタントです。",
+"これから、私が自営業として提供できるサービスと、名刺に載せる肩書を一緒に見つけてください。",
+"",
+profile(),
+"",
+"# お願い",
+"1. まだ分析や提案はしないでください。",
+"2. 上のプロフィールを読んで、私の強みを見つけるための質問を「1回に1つずつ」してください。",
+"3. 私の答えが抽象的なときは、「具体的にはどんな場面でしたか？」のように、エピソードを掘り下げてください。",
+hasF ? "4. 私の自己評価と第三者の評価にズレがある点は、特に詳しく聞いてください。本人が気づいていない強みの可能性があります。" : "4. 私が「当たり前」と思っていそうなことにも注目して、質問してください。",
+"5. 8問ほど聞き終えたら、次の形でまとめてください。",
+"   ・私の強み（根拠となるエピソード付き）",
+"   ・私が気づいていなかった強み",
+"   ・お金になりそうな「何を × どうする」の組み合わせ 3つ",
+"",
+"それでは、最初の質問をお願いします。"
+    ].join("\n");
+  }
+  function step2(){
+    return lead()+[
+"ここまでの内容をもとに、私が自営業として提供するサービス案を5つ提案してください。",
+"",
+conditions(),
+"・肩書の方向性："+$("dir").value,
+"※「やりたくないこと」に当てはまる案は出さないでください。",
+"",
+"# 各案に書くこと",
+"1. サービス名",
+"2. 誰の（具体的な相手）、どんな悩みを解決するか",
+"3. 提供の形（単発の相談・継続サポート・講座・制作代行など）と、価格の仮説",
+"4. 私の経歴・強みのどこが活きるか（「売れている市場 × 私ならではの経歴」になっているか）",
+"5. 名刺に載せる肩書の案（2つ）",
+"6. 目標の月収に届くには、月に何件の依頼が必要か",
+"",
+"最後に、5案を「始めやすさ」「収益性」「私らしさ」で◎○△評価した比較表にしてください。"
+    ].join("\n");
+  }
+  function step3(){
+    return lead()+[
+"次に、上のサービス案それぞれについて「実際にお金が払われている前例があるか」を、Web検索で調べてください。",
+"",
+"# 調べる場所（日本国内）",
+"ココナラ、ストアカ、タイムチケット、MOSH、ランサーズ、クラウドワークス、個人のホームページ・予約ページ など",
+"",
+"# 各案について調べること",
+"・同じようなサービスが販売されているか",
+"・価格帯",
+"・販売実績（購入数・レビュー数・受講者数など）",
+"・確認できたページのURL",
+"・販売実績が多い出品者は、誰向けに、どんな打ち出し方をしているか",
+"・その中で、私の経歴が活きる「絞り込み先」（〇〇業界専門、〇〇向けなど）と、まだ埋まっていない組み合わせ",
+"",
+"# 判定",
+"◎ 売れている実例が多数 ／ ○ 実例あり ／ △ 出品はあるが実績が少ない ／ × 見つからない",
+"",
+"# 守ってほしいこと",
+"・URLで確認できない情報は「未確認」と書き、推測で数字を補わないでください。",
+"・出品されているだけで売れていないものは、実績として数えないでください。",
+"",
+"最後に、おすすめの1〜2案とその理由、そして最初の1か月でできる小さなテスト（例：ココナラに出品する内容と価格）を提案してください。"
+    ].join("\n");
+  }
+  function step4(){
+    var pick=has("pick")? "「"+$("pick").value.trim()+"」" : "あなたがおすすめした案";
+    var area=has("area")? $("area").value.trim() : "活動エリア";
+    return lead()+[
+"最後に、"+pick+"で、名刺とチラシの原稿を作ってください。",
+"",
+"# 名刺",
+"・肩書：3案（10〜15文字程度。方向性："+$("dir").value+"）",
+"・ひとことキャッチコピー：3案",
+"・裏面に載せるサービス紹介：3行",
+"",
+"# チラシ（A4縦。"+area+"で配る・見せる想定）",
+"・見出し（20文字以内）",
+"・サブ見出し",
+"・「こんなお悩みはありませんか？」（3つ）",
+"・提供内容と料金の例",
+"・プロフィール（経歴のうち、信頼につながる部分を3行で）",
+"・行動の呼びかけ（初回相談・お問い合わせなど）",
+"",
+"# チラシの画像",
+"原稿ができたら、チラシの画像を作ってください。画像を作れない場合は、画像生成AIに貼る指示文を書いてください。",
+"・A4縦、雰囲気："+$("tone").value+"、メインカラー："+$("color").value,
+"・日本語の文字は崩れやすいので、画像内の文字は見出しとサービス名だけにする",
+"・実在の人物写真は使わず、イラストや図形で表現する",
+"・本文や連絡先は、あとからCanvaなどで入れられるよう余白を空けておく"
+    ].join("\n");
+  }
+  var HOW_TEXT = {
+    1:"<b>最初に貼る指示文です。</b>AIが質問を1つずつしてくるので、具体的なエピソードで答えてください。職務経歴書の画像を使う場合は、ここで一緒に添付します。",
+    2:"<b>STEP 1のまとめが出たら、同じチャットに貼ります。</b>肩書とサービス案を5つ出してもらいます。",
+    3:"<b>Web検索をオンにしてから貼ります。</b>実際に売れている前例があるかを、URL付きで確認してもらいます。",
+    4:"<b>使う案が決まったら貼ります。</b>方向性と雰囲気を選ぶと、指示文に反映されます。"
+  };
+  var BUILD={1:step1,2:step2,3:step3,4:step4};
+
+  function render(){
+    var t=BUILD[state.step]();
+    $("prompt").textContent=t;
+    $("count").textContent=t.length.toLocaleString()+" 文字";
+    $("how").innerHTML=HOW_TEXT[state.step];
+    $("step4opts").hidden = state.step!==4 && state.step!==2;
+    $("standaloneWrap").hidden = state.step===1;
+    // kake
+    if(state.what.length && state.how.length){
+      var combos=[]; state.what.forEach(function(w){ state.how.forEach(function(h){ combos.push(w+"×"+h); }); });
+      $("kakeOut").textContent="組み合わせ："+combos.slice(0,12).join(" ／ ")+(combos.length>12?" ほか":"")+"（"+combos.length+"通り）";
+    } else $("kakeOut").textContent="「何を」と「どうする」を選ぶと、ここに組み合わせが表示されます。";
+    // meishi
+    $("cardName").textContent = has("name")? $("name").value.trim() : "あなたの名前";
+    var sub=[]; if(has("area")) sub.push($("area").value.trim().split(/[、,]/)[0]); if(state.style) sub.push(state.style==="どちらでも"?"オンライン・対面":state.style);
+    $("cardSub").textContent = sub.join(" ／ ") || "活動エリア ／ スタイル";
+  }
+  function onChange(){
+    if(isSample){ isSample=false; $("sampleBanner").hidden=true; }
+    render(); save();
+  }
+
+  // ---- friend ----
+  function fv(id){ return ($(id).value||"").trim(); }
+  function renderFriend(){
+    var n=fv("fName")||"〇〇さん";
+    var t="【"+n+"についての回答】\n回答者との関係："+(fv("fRel")||"（未選択）")+
+      "\n1. 頼りたいこと："+(fv("fQ1")||"（未入力）")+
+      "\n2. 印象を3つの言葉で："+(fv("fQ2")||"（未入力）")+
+      "\n3. お金を取れそうなこと："+(fv("fQ3")||"（未入力）")+
+      "\n4. 本人が気づいていなさそうなこと："+(fv("fQ4")||"（未入力）")+
+      "\n5. 紹介したい相手："+(fv("fQ5")||"（未入力）");
+    $("friendOut").textContent=t;
+  }
+  FRIEND_IDS.forEach(function(id){ $(id).addEventListener("input",renderFriend); $(id).addEventListener("change",renderFriend); });
+
+  // ---- copy ----
+  function copyText(text, el, toast, msg){
+    function ok(){ $(toast).textContent=msg; setTimeout(function(){ $(toast).textContent=""; },2500); }
+    function fallback(){
+      try{ var r=document.createRange(); r.selectNodeContents(el); var s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }catch(e){}
+      $(toast).textContent="自動コピーできませんでした。選択された文章を長押し／Ctrl+Cでコピーしてください。";
+    }
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(ok,fallback); }
+      else fallback();
+    }catch(e){ fallback(); }
+  }
+  $("copyPrompt").addEventListener("click",function(){ copyText($("prompt").textContent,$("prompt"),"toast","コピーしました。ChatGPTかClaudeに貼り付けてください。"); });
+  $("copyFriend").addEventListener("click",function(){ copyText($("friendOut").textContent,$("friendOut"),"fToast","コピーしました。LINEやメールで本人に送ってください。"); });
+  $("copyAsk").addEventListener("click",function(){
+    var me=has("name")? $("name").value.trim() : "私";
+    var url=has("toolUrl")? $("toolUrl").value.trim() : "（ツールのURL）";
+    var t=me+"です。独立に向けて自分の強みを整理していて、客観的な意見をもらえるとうれしいです。\n5問だけ、3分ほどで答えられます。\n\n① このページを開いてください\n"+url+"\n② 上の「友人として回答する」を選んで答えてください\n③ 最後の「回答をコピー」ボタンを押して、私に送ってください\n\nよろしくお願いします！";
+    var tmp=document.createElement("pre"); tmp.textContent=t;
+    copyText(t,tmp,"askToast","依頼メッセージをコピーしました。");
+  });
+
+  // ---- events ----
+  TEXT_IDS.forEach(function(id){ $(id).addEventListener("input",onChange); $(id).addEventListener("change",onChange); });
+  $("resumeImg").addEventListener("change",onChange);
+  $("standalone").addEventListener("change",function(){ state.standalone=this.checked; render(); });
+  document.querySelectorAll("#steps button").forEach(function(b){
+    b.addEventListener("click",function(){
+      state.step=+b.getAttribute("data-step");
+      document.querySelectorAll("#steps button").forEach(function(x){ x.setAttribute("aria-selected", x===b?"true":"false"); });
+      render();
+    });
+  });
+  function clearAll(){
+    var empty={}; TEXT_IDS.forEach(function(id){ empty[id]=""; });
+    empty.dir="お任せ"; empty.tone="誠実・信頼感"; empty.color="お任せ";
+    empty.toolUrl=defaultUrl();
+    apply(empty); isSample=false; $("sampleBanner").hidden=true; render(); save();
+  }
+  $("clearBtn").addEventListener("click",clearAll);
+  $("resetBtn").addEventListener("click",clearAll);
+
+  function setMode(m){
+    var friend=(m==="friend");
+    $("selfView").hidden=friend; $("friendView").hidden=!friend;
+    $("tabSelf").setAttribute("aria-selected", friend?"false":"true");
+    $("tabFriend").setAttribute("aria-selected", friend?"true":"false");
+  }
+  $("tabSelf").addEventListener("click",function(){ setMode("self"); try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} });
+  $("tabFriend").addEventListener("click",function(){ setMode("friend"); try{ location.hash="friend"; }catch(e){} });
+  window.addEventListener("hashchange",function(){ setMode(location.hash==="#friend"?"friend":"self"); });
+
+  function defaultUrl(){
+    try{ if(window.self===window.top && /^https?:/.test(location.protocol)) return location.origin+location.pathname; }catch(e){}
+    return "";
+  }
+
+  // ---- init ----
+  var saved=load();
+  if(saved && !saved._sample){ apply(saved); }
+  else { apply(SAMPLE); isSample=true; $("sampleBanner").hidden=false; }
+  if(!has("toolUrl")) $("toolUrl").value=defaultUrl();
+  // 名前の取得（GitHub Pages用：?name=〇〇 で回答者フォームに名前を入れる）
+  try{ var q=new URLSearchParams(location.search).get("name"); if(q) $("fName").value=q; }catch(e){}
+  setMode(location.hash==="#friend"?"friend":"self");
+  render(); renderFriend();
+})();
+</script>
+
+</body>
+</html>
